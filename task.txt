@@ -1,0 +1,34 @@
+Rating scale: 1 = Unsatisfactory; 2 = Poor; 3 = Average; 4 = Good; 5 = Great
+
+Category: Data Exploration/Understanding
+Checkpoints (will be checked, but not limited):
+
+Clear problem statement (class./reg.), focusing on dependant and important independent features, with number of instances and features.
+
+For structured dataset: How to change from un- to structured dataset (e.g., drop, encoding, subset)?
+
+Data visualization (e.g., correlation matrix, 2/3 dimensional data patterns, histograms etc)
+
+Category: Feature Selection
+Checkpoints:
+
+Yes or NO. (If no, why no. If yes, how? e.g., Select K Best, Recursive methods etc)?
+
+Category: Model Building/Selection
+Checkpoints:
+
+Using covered all the methods (Linear Models, +Reg., DT, +Ensemble, kNN, MLP). MUST have at least 6 estimators.
+
+[Each-Estimator] Cross-Validation was done systematically (i.e., MUST have at least a local optimal point) for each estimator; MUST compare training and validation errors (scores) with line graphs.
+
+[Among-Estimators] model comparison, analyses, and model selection (MUST select the best of the best) with the best validation results?
+
+Category: Results with Test Dataset(s)
+Checkpoints:
+
+MUST use test dataset, comparing with the validation accuracy
+
+Category: Presentation
+Checkpoints:
+
+8 ~ 10 mins in presentation, covering all the important parts, with clear readability in slides

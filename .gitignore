@@ -99,4 +99,5 @@ $RECYCLE.BIN/
 # mypy
 .mypy_cache/
 .dmypy.json
+.png
 
