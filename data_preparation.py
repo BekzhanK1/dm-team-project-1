@@ -185,7 +185,7 @@ def create_correlation_matrix(X_train, y_train, feature_names):
     plt.title('Correlation Matrix - All Features', fontsize=16, fontweight='bold')
     plt.tight_layout()
     plt.show()
-    
+
     return corr_matrix, target_corr
 
 def analyze_multicollinearity(X_train, y_train, feature_names):
@@ -297,7 +297,7 @@ def create_final_correlation_matrix(X_train, y_train, feature_names):
     
     return corr_matrix, target_corr
 
-def apply_selectkbest_fscore(X_train, X_test, y_train, feature_names, k=10):
+def apply_selectkbest_fscore(X_train, X_test, y_train, feature_names, k=12):
     """
     Apply SelectKBest with F-score and display results
     """
@@ -427,7 +427,7 @@ def prepare_data(filepath='datasets/spotify_churn_dataset.csv', test_size=0.3, r
     
     # Apply SelectKBest with F-score
     X_train_selected, X_test_selected, selected_feature_names, feature_selector = apply_selectkbest_fscore(
-        X_train_final, X_test_final, y_train, feature_names_final, k=10
+        X_train_final, X_test_final, y_train, feature_names_final, k=12
     )
     
     print(f"\n{'='*60}")
@@ -438,7 +438,7 @@ def prepare_data(filepath='datasets/spotify_churn_dataset.csv', test_size=0.3, r
     print(f"Test set: {X_test_selected.shape[0]} samples × {X_test_selected.shape[1]} features")
     print(f"Selected features: {X_train_selected.shape[1]} out of {len(feature_names_final)}")
     print(f"Removed features due to multicollinearity: {len(features_to_remove)}")
-    print(f"Feature selection method: SelectKBest with F-score (K=10)")
+    print(f"Feature selection method: SelectKBest with F-score (K=12)")
     
     print(f"\nReady for:")
     print(f"  - Cross-validation on training set")
@@ -462,4 +462,28 @@ def get_prepared_data(filepath='datasets/spotify_churn_dataset.csv', test_size=0
     return prepare_data(filepath, test_size, random_state)
 
 if __name__ == "__main__":
-    X_train, X_test, y_train, y_test, feature_names, onehot_encoder, scaler = prepare_data()
+    X_train, X_test, y_train, y_test, feature_names, onehot_encoder, scaler, feature_selector = prepare_data()
+    
+    print(f"\n{'='*60}")
+    print("FINAL PROCESSED DATA FOR MODEL TRAINING")
+    print("="*60)
+    print(f"Training set shape: {X_train.shape}")
+    print(f"Test set shape: {X_test.shape}")
+    print(f"Selected features: {feature_names}")
+    
+    # Create DataFrame for better visualization
+    import pandas as pd
+    X_train_df = pd.DataFrame(X_train, columns=feature_names)
+    X_test_df = pd.DataFrame(X_test, columns=feature_names)
+    
+    print(f"\nFirst 10 rows of TRAINING data:")
+    print(X_train_df.head(10))
+    
+    print(f"\nFirst 10 rows of TEST data:")
+    print(X_test_df.head(10))
+    
+    print(f"\nTarget variable (y_train) - first 10 values:")
+    print(y_train.head(10).values)
+    
+    print(f"\nTarget variable (y_test) - first 10 values:")
+    print(y_test.head(10).values)
