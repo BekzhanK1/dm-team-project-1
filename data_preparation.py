@@ -14,7 +14,7 @@ Problem Statement:
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.preprocessing import StandardScaler, OneHotEncoder, OrdinalEncoder, TargetEncoder
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -129,9 +129,12 @@ def visualize_data(df, save_plots=True):
 
 def prepare_data(filepath='datasets/spotify_churn_dataset.csv', test_size=0.2, val_size=0.125, random_state=42):
     """
-    Prepare the dataset for modeling:
+    Prepare the dataset for modeling using mixed encoding strategies:
     - Drop unnecessary columns (user_id)
-    - Encode categorical variables
+    - Apply different encoders for different categorical features:
+      * One-hot encoding: gender, device_type (low cardinality, no ordinality)
+      * Ordinal encoding: subscription_type (natural ordering)
+      * Target encoding: country (medium cardinality, captures churn patterns)
     - Split into train, validation, and test sets
     - Scale numerical features
     
@@ -145,7 +148,7 @@ def prepare_data(filepath='datasets/spotify_churn_dataset.csv', test_size=0.2, v
         X_train, X_val, X_test: Feature matrices (scaled)
         y_train, y_val, y_test: Target vectors
         feature_names: List of feature names after encoding
-        encoders: Dictionary of label encoders for categorical variables
+        encoders: Dictionary containing fitted encoders
         scaler: Fitted StandardScaler object
     """
     # Load data
@@ -163,34 +166,25 @@ def prepare_data(filepath='datasets/spotify_churn_dataset.csv', test_size=0.2, v
     X = df.drop('is_churned', axis=1)
     y = df['is_churned']
     
-    # Identify categorical and numerical columns
-    categorical_cols = ['gender', 'country', 'subscription_type', 'device_type']
+    # Define encoding strategies for different categorical features
+    onehot_features = ['gender', 'device_type']  # Low cardinality, no ordinality
+    ordinal_features = ['subscription_type']      # Natural ordering
+    target_features = ['country']                 # Medium cardinality, captures churn patterns
     numerical_cols = ['age', 'listening_time', 'songs_played_per_day', 
                      'skip_rate', 'ads_listened_per_week', 'offline_listening']
     
-    print(f"\nCategorical features: {categorical_cols}")
-    print(f"Numerical features: {numerical_cols}")
+    print(f"\nMixed Encoding Strategy:")
+    print(f"  One-hot encoding: {onehot_features}")
+    print(f"  Ordinal encoding: {ordinal_features}")
+    print(f"  Target encoding: {target_features}")
+    print(f"  Numerical features: {numerical_cols}")
     
-    # Encode categorical variables
-    encoders = {}
-    X_encoded = X.copy()
-    
-    for col in categorical_cols:
-        le = LabelEncoder()
-        X_encoded[col] = le.fit_transform(X[col])
-        encoders[col] = le
-        print(f"✓ Encoded '{col}': {list(le.classes_)}")
-    
-    # Get feature names after encoding
-    feature_names = list(X_encoded.columns)
-    
-    # Split into train+val and test sets (80-20 split)
+    # Split data first to prevent target encoding leakage
     X_temp, X_test, y_temp, y_test = train_test_split(
-        X_encoded, y, test_size=test_size, random_state=random_state, stratify=y
+        X, y, test_size=test_size, random_state=random_state, stratify=y
     )
     
     # Split train+val into train and validation sets
-    # val_size / (1 - test_size) gives us the right proportion
     val_ratio = val_size / (1 - test_size)
     X_train, X_val, y_train, y_val = train_test_split(
         X_temp, y_temp, test_size=val_ratio, random_state=random_state, stratify=y_temp
@@ -209,17 +203,84 @@ def prepare_data(filepath='datasets/spotify_churn_dataset.csv', test_size=0.2, v
     print(f"  Validation: {y_val.mean():.2%}")
     print(f"  Test: {y_test.mean():.2%}")
     
+    # Initialize encoders
+    encoders = {}
+    
+    # 1. One-hot encoding for gender and device_type
+    onehot_encoder = OneHotEncoder(drop='first', sparse_output=False)  # drop='first' to avoid multicollinearity
+    X_train_onehot = onehot_encoder.fit_transform(X_train[onehot_features])
+    X_val_onehot = onehot_encoder.transform(X_val[onehot_features])
+    X_test_onehot = onehot_encoder.transform(X_test[onehot_features])
+    encoders['onehot'] = onehot_encoder
+    
+    onehot_feature_names = onehot_encoder.get_feature_names_out(onehot_features)
+    print(f"\n✓ One-hot encoded features:")
+    for i, feature in enumerate(onehot_features):
+        unique_values = X_train[feature].unique()
+        print(f"  {feature}: {list(unique_values)}")
+    
+    # 2. Ordinal encoding for subscription_type
+    ordinal_encoder = OrdinalEncoder(categories=[['Free', 'Student', 'Family', 'Premium']])
+    X_train_ordinal = ordinal_encoder.fit_transform(X_train[ordinal_features])
+    X_val_ordinal = ordinal_encoder.transform(X_val[ordinal_features])
+    X_test_ordinal = ordinal_encoder.transform(X_test[ordinal_features])
+    encoders['ordinal'] = ordinal_encoder
+    
+    print(f"\n✓ Ordinal encoded features:")
+    print(f"  subscription_type: Free=0, Student=1, Family=2, Premium=3")
+    
+    # 3. Target encoding for country (fit only on training data)
+    target_encoder = TargetEncoder(random_state=random_state)
+    X_train_target = target_encoder.fit_transform(X_train[target_features], y_train)
+    X_val_target = target_encoder.transform(X_val[target_features])
+    X_test_target = target_encoder.transform(X_test[target_features])
+    encoders['target'] = target_encoder
+    
+    print(f"\n✓ Target encoded features:")
+    print(f"  country: Mean churn rate per country")
+    
+    # Combine all encoded features
+    X_train_encoded = np.column_stack([
+        X_train[numerical_cols].values,
+        X_train_target,
+        X_train_ordinal,
+        X_train_onehot
+    ])
+    
+    X_val_encoded = np.column_stack([
+        X_val[numerical_cols].values,
+        X_val_target,
+        X_val_ordinal,
+        X_val_onehot
+    ])
+    
+    X_test_encoded = np.column_stack([
+        X_test[numerical_cols].values,
+        X_test_target,
+        X_test_ordinal,
+        X_test_onehot
+    ])
+    
+    # Create feature names
+    feature_names = numerical_cols + target_features + ordinal_features + list(onehot_feature_names)
+    
+    print(f"\n✓ Total features after mixed encoding: {len(feature_names)}")
+    print(f"  Features: {feature_names}")
+    
     # Scale numerical features
     scaler = StandardScaler()
     
-    # Fit on training data only
-    X_train_scaled = X_train.copy()
-    X_val_scaled = X_val.copy()
-    X_test_scaled = X_test.copy()
+    # Get indices of numerical features in the combined array
+    numerical_indices = list(range(len(numerical_cols)))
     
-    X_train_scaled[numerical_cols] = scaler.fit_transform(X_train[numerical_cols])
-    X_val_scaled[numerical_cols] = scaler.transform(X_val[numerical_cols])
-    X_test_scaled[numerical_cols] = scaler.transform(X_test[numerical_cols])
+    # Fit scaler on training data only
+    X_train_scaled = X_train_encoded.copy()
+    X_val_scaled = X_val_encoded.copy()
+    X_test_scaled = X_test_encoded.copy()
+    
+    X_train_scaled[:, numerical_indices] = scaler.fit_transform(X_train_encoded[:, numerical_indices])
+    X_val_scaled[:, numerical_indices] = scaler.transform(X_val_encoded[:, numerical_indices])
+    X_test_scaled[:, numerical_indices] = scaler.transform(X_test_encoded[:, numerical_indices])
     
     print(f"\n✓ Scaled numerical features using StandardScaler")
     
